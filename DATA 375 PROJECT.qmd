@@ -1,0 +1,573 @@
+---
+title: "Data 375 project"
+author: "Meed, Isabelle, David"
+format: pdf
+editor: visual
+---
+
+## Data Cleaning Function
+
+In this section, I create a function that cleans the Spotify dataset. The function selects only the important columns, renames them to simpler names, converts the streams column to numeric, and removes any missing values. This prepares the data so it can be used for analysis in later steps.
+
+```{r}
+clean_music_data <- function(data) {
+  
+  # Check input
+  if (!is.data.frame(data)) {
+    stop("data must be a data frame")
+  }
+  
+  # Select columns
+  cleaned_data <- data[, c(
+    "track_name",
+    "artist(s)_name",
+    "streams",
+    "energy_%",
+    "danceability_%",
+    "bpm"
+  )]
+  
+  # Rename columns
+  names(cleaned_data) <- c(
+    "track_name",
+    "artist_name",
+    "streams",
+    "energy",
+    "danceability",
+    "bpm"
+  )
+  
+  # Convert streams to numeric safely
+  cleaned_data$streams <- trimws(cleaned_data$streams)
+  cleaned_data$streams <- gsub(",", "", cleaned_data$streams)
+  cleaned_data$streams[cleaned_data$streams == ""] <- NA
+  cleaned_data$streams <- suppressWarnings(as.numeric(cleaned_data$streams))
+  
+  # Remove missing values
+  cleaned_data <- na.omit(cleaned_data)
+  
+  return(cleaned_data)
+}
+```
+
+## Documentation
+
+In this section, I explain how the function works. I describe what the function takes as input, what it returns, and the steps it follows. This makes it easier for others to understand and use the function correctly.
+
+```{r}
+# Documentation for clean_music_data()
+
+# Function Name:
+# clean_music_data
+
+# Purpose:
+# This function cleans the Spotify dataset and prepares it for later analysis.
+# It keeps only the most important variables from the original file and removes
+# rows with missing values.
+
+# Parameter:
+# data -> a raw data frame that contains the Spotify song data
+
+# Return Value:
+# The function returns a cleaned data frame with 6 columns:
+# track_name, artist_name, streams, energy, danceability, and bpm
+
+# What the function does:
+# First, it checks that the input is a data frame.
+# Next, it selects only the columns that are useful for this project.
+# Then, it renames some columns so they are easier to read and use.
+# After that, it converts the streams column into numeric form.
+# Finally, it removes rows with missing values and returns the cleaned dataset.
+
+# Why this function is useful:
+# This function makes the raw Spotify data easier to work with.
+# It also helps make sure that the dataset is clean before doing summary
+# statistics or creating graphs.
+
+# Example:
+# spotify_data <- read.csv("spotify-2023.csv", check.names = FALSE)
+# cleaned <- clean_music_data(spotify_data)
+# head(cleaned)
+```
+
+## Load and Test Data
+
+In this section, I load the original Spotify dataset and apply the cleaning function. I then display part of the cleaned data and check its size to make sure the function works correctly. Finally, I save the cleaned dataset as a new CSV file for later use.
+
+```{r}
+# Load the data
+spotify_data <- read.csv("spotify-2023.csv", check.names = FALSE)
+
+# Use your function
+cleaned <- clean_music_data(spotify_data)
+
+# Show first rows
+head(cleaned)
+
+# Show full size of data set (rows and columns)
+dim(cleaned)
+
+# Show summary statistics
+summary(cleaned)
+
+# Save cleaned data to a new CSV file
+write.csv(cleaned, "cleaned_spotify.csv", row.names = FALSE)
+```
+
+#### Start of Isabelle's Work
+
+## Statistics
+
+In this section, I create four functions that analyze the cleaned dataset. Using the numeric values, I create a function that can find the top artist by stream count, a function that can summarize the music and the dataset and determines the correlation between different audio features, a function that summarizes audio features with simple statistics, and a function that takes an artist name input to calculate basic statistics and top songs for that artist.
+
+```{r}
+# Multiple functions in this block rely on the dpylr tidyverse package
+library(dplyr)
+# Use "cleaned" data set from above
+
+top_artists <- function(data, n = 10) {
+  data |>
+    group_by(artist_name) |>
+    summarize(total_streams = sum(streams)) |>
+    arrange(desc(total_streams)) |>
+    head(n)
+}
+
+summarize_music <- function(data) {
+  data |> 
+    summarise(
+      avg_streams = mean(streams),
+      correlate_energy = cor(streams, energy),
+      correlate_dance = cor(streams, danceability),
+      correlate_bpm = cor(streams, bpm)
+    )
+}
+
+summarize_features <- function(data) {
+  data |>
+    summarise(across(
+      c(energy, danceability, bpm),
+      list(
+        mean = \(x) mean(x, na.rm = TRUE),
+        sd = \(x) sd(x, na.rm = TRUE),
+        min = \(x) min(x, na.rm = TRUE),
+        max = \(x) max(x, na.rm = TRUE),
+        median = \(x) median(x, na.rm = TRUE)
+      )
+    ))
+}
+
+artist_summary <- function(data, name) {
+  data |> 
+    mutate(artist_name = iconv(artist_name, from = "", to = "UTF-8", sub = "byte")) |>
+    filter(grepl(name, artist_name, ignore.case = TRUE)) |>
+    summarise(
+      total_tracks = n(),
+      total_streams = sum(streams, na.rm = TRUE),
+      avg_energy = mean(energy, na.rm = TRUE),
+      avg_dance = mean(danceability, na.rm = TRUE),
+      avg_bpm = mean(bpm, na.rm = TRUE),
+      top_song = track_name[which.max(streams)]
+    )
+}
+
+```
+
+## Test Functions
+
+In this section, I briefly show testing of each of the four functions
+
+```{r}
+# Show use of top_artist
+top_artists(cleaned)
+```
+
+```{r}
+# Show use of summarize_music
+summarize_music(cleaned)
+```
+
+```{r}
+# Show use of summarize_features
+summarize_features(cleaned)
+```
+
+```{r}
+# Show use of artist_summary
+artist_summary(cleaned, "Taylor Swift")
+```
+
+## Documentation for Statistics Functions
+
+```{r}
+# Documentation for top_artists
+
+# Function Name:
+# top_artists
+
+# Purpose:
+# This function finds the top 10 most streamed artists in the cleaned data frame.
+
+# Parameters:
+# data -> a cleaned data frame from the clean_music_data function. The data frame contains cleaned Spotify song data.
+# n -> a number of top songs the user wants from the Spotify song data. Default is 10. This doesn't need to be specified by the user.
+
+# Return Value:
+# The function returns a dataframe with the top ten songs by streams and their stream counts.
+
+# What the function does:
+# First, it groups the cleaned data by artist name.
+# Next, it adds up the total streams for each artist using sum().
+# Then, it puts the artists and their total streams into a dataframe using summarize().
+# Finally, it arranges the top artists in descending order.
+
+# Why this function is useful:
+# This function shows the most streamed artists in the cleaned data frame. It can be used to make plots of top artists or streams across top artists.
+
+# Example:
+# top_artists(cleaned)
+
+# Important Note:
+# This function relies on the tidyverse package "dpylr" 
+```
+
+```{r}
+# Documentation for summarize_music
+
+# Function Name:
+# summarize_music
+
+# Purpose:
+# This function summarizes the average streams and the correlation between audio features in the dataset.
+
+# Parameters:
+# data -> a cleaned data frame from the clean_music_data function. The data frame contains cleaned Spotify song data.
+
+# Return Value:
+# The function returns a dataframe with the average streams and the correlations between energy, danceability, and bpm with streams.
+# The dataframe contains:
+# avg_streams, correlate_energy, correlate_dance, correlate_bpm
+
+# What the function does:
+# First, it computes the average streams and correlations between the three audio features and stream count.
+# Next, it uses the summarise() function to collapse calculated data into summary statistics.
+
+# Why this function is useful:
+# This function provides a very basic statistic of the streams in the dataset and shows the relationships between the other variables in the dataset. 
+
+# Example:
+# summarize_music(cleaned)
+
+# Important Note:
+# This function relies on the tidyverse package "dpylr" 
+```
+
+```{r}
+# Documentation for summarize_features
+
+# Function Name:
+# summarize_features
+
+# Purpose:
+# This function provides 5 basic statistics on the audio features of the tracks in the dataset.
+
+# Parameters:
+# data -> a cleaned data frame from the clean_music_data function. The data frame contains cleaned Spotify song data.
+
+# Return Value:
+# The function returns a dataframe with the standard deviation, mean, min, max, and median of energy, danceability, and bpm
+# The dataframe contains:
+# energy_mean, energy_sd, energy_min, energy_max, energy_median, danceability_mean, danceability_sd, danceability_min, danceability_max, danceability_median, bpm_mean, bpm_sd, bpm_min, bpm_max, bpm_median.
+
+# What the function does:
+# First, it lists the columns to apply statistics function to, doing so with the across() function.
+# Next, within the across() function, it lists all the statistics that it should calculate for each function.
+# Finally, it collapses the statistics calculated in the function into summary statistics using the summarise() function. 
+
+
+# Why this function is useful:
+# This function provides basic statistics (mean, median, min, max, and sd) of the three audio features in the dataset. 
+
+# Example:
+# summarize_features(cleaned)
+
+# Important Note:
+# This function relies on the tidyverse package "dpylr" 
+```
+
+```{r}
+# Documentation for artist_summary
+
+# Function Name:
+# artist_summary
+
+# Purpose:
+# This function provides total songs, streams, and top song, as well as average audio feature values for a specific artist.
+
+# Parameters:
+# data -> a cleaned data frame from the clean_music_data function. The data frame contains cleaned Spotify song data.
+# name -> character of an artist name
+
+# Return Value:
+# The function returns a dataframe with general information about an artist in the dataframe
+# The dataframe contains:
+# total_songs, total_streams, avg_energy, avg_dance, avg_bpm, top_song.
+
+# What the function does:
+# First, it changes some of the song names or artist names to be in UTF-8 format since some characters in song names could not be read properly by R.
+# Next, it filters through the dataframe by the name designated by the user in the function. It ignores cases when filtering, so names can be upper or lower case.
+# Then, it calculates the total_songs, total_streams, avg_energy, avg_dance, avg_bpm, and top_song. 
+# Finally, it collapses what the function calculated into summary statistics using the summarise() function. 
+
+
+# Why this function is useful:
+# This function provides basic statistics (mean, median, min, max, and sd) of the three audio features in the dataset. 
+
+# Example:
+# artist_summary(cleaned, "Taylor Swift")
+# artist_summary(cleaned, "taylor swift")
+
+# Important Note:
+# This function relies on the tidyverse package "dpylr" 
+```
+
+#### Start of David's Work
+
+## Data Visualization
+
+In this section, I create two functions that visualize the cleaned dataset. The first function builds a scatterplot of energy versus streams, histograms for the main audio features, and a bar chart of the most streamed artists. The second function plots the distribution of one numeric feature using a histogram with an optional density curve on top so the shape is easier to read.
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+plot_music <- function(data, n = 10) {
+  
+  # Check input
+  if (!is.data.frame(data)) {
+    stop("data must be a data frame")
+  }
+  
+  required_cols <- c(
+    "track_name",
+    "artist_name",
+    "streams",
+    "energy",
+    "danceability",
+    "bpm"
+  )
+  missing_cols <- setdiff(required_cols, names(data))
+  if (length(missing_cols) > 0) {
+    stop("data is missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+  
+  # Energy vs streams (scatterplot)
+  scatter_plot <- ggplot(data, aes(x = energy, y = streams)) +
+    geom_point(alpha = 0.35, na.rm = TRUE) +
+    labs(
+      title = "Energy vs streams",
+      x = "Energy (%)",
+      y = "Streams"
+    ) +
+    theme_minimal()
+  
+  # Distributions of audio features (histograms)
+  hist_energy <- ggplot(data, aes(x = energy)) +
+    geom_histogram(color = "white", bins = 30, na.rm = TRUE) +
+    labs(
+      title = "Distribution of energy",
+      x = "Energy (%)",
+      y = "Count"
+    ) +
+    theme_minimal()
+  
+  hist_dance <- ggplot(data, aes(x = danceability)) +
+    geom_histogram(color = "white", bins = 30, na.rm = TRUE) +
+    labs(
+      title = "Distribution of danceability",
+      x = "Danceability (%)",
+      y = "Count"
+    ) +
+    theme_minimal()
+  
+  hist_bpm <- ggplot(data, aes(x = bpm)) +
+    geom_histogram(color = "white", bins = 30, na.rm = TRUE) +
+    labs(
+      title = "Distribution of BPM",
+      x = "BPM",
+      y = "Count"
+    ) +
+    theme_minimal()
+  
+  # Compare artists with a bar chart (top n by total streams)
+  top_artists_df <- data |>
+    group_by(artist_name) |>
+    summarize(total_streams = sum(streams, na.rm = TRUE), .groups = "drop") |>
+    arrange(desc(total_streams)) |>
+    head(n)
+  
+  bar_plot <- ggplot(
+    top_artists_df,
+    aes(x = reorder(artist_name, total_streams), y = total_streams)
+  ) +
+    geom_col(na.rm = TRUE) +
+    coord_flip() +
+    labs(
+      title = paste("Top", n, "artists by total streams"),
+      x = NULL,
+      y = "Total streams"
+    ) +
+    theme_minimal()
+  
+  return(list(
+    scatter_energy_streams = scatter_plot,
+    histogram_energy = hist_energy,
+    histogram_danceability = hist_dance,
+    histogram_bpm = hist_bpm,
+    bar_top_artists = bar_plot
+  ))
+}
+
+plot_feature_distribution <- function(data, feature, bins = 30) {
+  
+  # Check input
+  if (!is.data.frame(data)) {
+    stop("data must be a data frame")
+  }
+  
+  if (length(feature) != 1 || !is.character(feature)) {
+    stop("feature must be a single character string naming a column")
+  }
+  
+  if (!feature %in% names(data)) {
+    stop("feature is not a column in data")
+  }
+  
+  if (!is.numeric(data[[feature]])) {
+    stop("feature must refer to a numeric column")
+  }
+  
+  # Histogram scaled to density, with a smoothed density curve on top
+  dist_plot <- ggplot(data, aes(x = .data[[feature]])) +
+    geom_histogram(
+      aes(y = after_stat(density)),
+      bins = bins,
+      alpha = 0.65,
+      color = "white",
+      na.rm = TRUE
+    ) +
+    geom_density(na.rm = TRUE, alpha = 0.35, linewidth = 0.8) +
+    labs(
+      title = paste("Distribution of", feature),
+      x = feature,
+      y = "Density"
+    ) +
+    theme_minimal()
+  
+  return(dist_plot)
+}
+```
+
+## Test Visualization Functions
+
+In this section, I show the plots returned by each visualization function.
+
+```{r}
+# plot_music returns a list of ggplot objects
+music_plots <- plot_music(cleaned)
+music_plots$scatter_energy_streams
+```
+
+```{r}
+music_plots$histogram_energy
+```
+
+```{r}
+music_plots$histogram_danceability
+```
+
+```{r}
+music_plots$histogram_bpm
+```
+
+```{r}
+music_plots$bar_top_artists
+```
+
+```{r}
+plot_feature_distribution(cleaned, "energy")
+```
+
+```{r}
+plot_feature_distribution(cleaned, "streams", bins = 25)
+```
+
+## Documentation for Visualization Functions
+
+```{r}
+# Documentation for plot_music
+
+# Function Name:
+# plot_music
+
+# Purpose:
+# This function creates common ggplot2 figures for the cleaned Spotify data.
+
+# Parameters:
+# data -> a cleaned data frame from the clean_music_data function. The data frame contains cleaned Spotify song data.
+# n -> how many artists to show in the bar chart. Default is 10.
+
+# Return Value:
+# The function returns a named list of ggplot objects:
+# scatter_energy_streams, histogram_energy, histogram_danceability, histogram_bpm, bar_top_artists
+
+# What the function does:
+# First, it checks that the input is a data frame and that required columns exist.
+# Next, it builds a scatterplot of energy versus streams.
+# Then, it builds histograms for energy, danceability, and bpm.
+# Finally, it builds a bar chart of the top artists by total streams.
+
+# Why this function is useful:
+# This function helps visualize popularity and audio feature patterns in the dataset.
+
+# Example:
+# library(ggplot2)
+# library(dplyr)
+# plots <- plot_music(cleaned)
+# plots$scatter_energy_streams
+
+# Important Note:
+# This function relies on ggplot2 and dplyr.
+```
+
+```{r}
+# Documentation for plot_feature_distribution
+
+# Function Name:
+# plot_feature_distribution
+
+# Purpose:
+# This function shows how a numeric feature is distributed across songs using a histogram and a density curve.
+
+# Parameters:
+# data -> a cleaned data frame from the clean_music_data function. The data frame contains cleaned Spotify song data.
+# feature -> a character string with the name of one numeric column (for example "energy", "danceability", "bpm", or "streams")
+# bins -> number of histogram bins. Default is 30.
+
+# Return Value:
+# The function returns one ggplot object.
+
+# What the function does:
+# First, it checks that the input is a data frame.
+# Next, it checks that feature is a single column name and that the column is numeric.
+# Then, it draws a histogram scaled to density and overlays a smoothed density curve.
+
+# Why this function is useful:
+# This function makes it easier to see the shape of a feature's distribution, including skewness and multiple peaks.
+
+# Example:
+# plot_feature_distribution(cleaned, "bpm")
+
+# Important Note:
+# This function relies on ggplot2.
+```
