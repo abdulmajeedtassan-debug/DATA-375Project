@@ -1,0 +1,9 @@
+utils::globalVariables(c(
+  "artist_name",
+  "bpm",
+  "danceability",
+  "energy",
+  "streams",
+  "total_streams",
+  "value"
+))

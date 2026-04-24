@@ -1,0 +1,24 @@
+Package: musicDataAnalysis
+Type: Package
+Title: Music Data Analysis for Spotify Songs
+Version: 0.1.0
+Authors@R: c(
+    person("Meed", "Altassan", role = c("aut", "cre"), email = "altassan@arizona.edu"),
+    person("David", "Rincon Villanueva", role = "aut"),
+    person("Isabelle", "Marcy", role = "aut"),
+    person("Ben", "Ge", role = "aut")
+  )
+Description: Provides simple functions for cleaning, summarizing, and visualizing
+    the Top Spotify Songs 2023 dataset. The package helps users explore streams,
+    artists, and audio features such as energy, danceability, and bpm.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    ggplot2
+Suggests:
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
